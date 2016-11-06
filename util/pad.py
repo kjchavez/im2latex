@@ -11,7 +11,7 @@ def find_bucket(image_size, buckets):
         if image_size[0] <= height and image_size[1] <= width:
             return (height, width)
 
-def pad_image(image, buckets):
+def pad_image(image, buckets, value=(255,255,255)):
     """ Returns padded image and bucket to which it was padded. """
     bucket = find_bucket(image.shape[0:2], buckets)
     if bucket is None:
@@ -24,7 +24,7 @@ def pad_image(image, buckets):
     padded_image = cv2.copyMakeBorder(image,
                                       vpad, (bucket[0] - image.shape[0] - vpad),
                                       hpad, (bucket[1] - image.shape[1] - hpad),
-                                      cv2.BORDER_CONSTANT,value=(255,255,255))
+                                      cv2.BORDER_CONSTANT, value=value)
     return padded_image, bucket
 
 def pad_and_save_image(filename, output_filename, buckets):
