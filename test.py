@@ -1,7 +1,7 @@
 import tensorflow as tf
 from model.input import get_train_data
 from model.encoder import convolutional_features
-from model.decoder import attention, decode
+from model.decoder import attention, decode, embedding_matrix
 import numpy as np
 
 hparams = {
@@ -9,6 +9,7 @@ hparams = {
     'adim': 128,
     'vdim': 512,
     'batch_size': 2,
+    'embedding_dim': 128,
     'output_hidden_layer_dim': 128
 }
 
@@ -16,13 +17,14 @@ with open('character_mapping.txt') as fp:
     char_mapping = [l for l in fp]
     VOCAB_SIZE = len(char_mapping)
 
+embeddings = embedding_matrix(VOCAB_SIZE, hparams['embedding_dim'])
 X, y = get_train_data(batch_size=hparams['batch_size'])
 feat = convolutional_features(tf.expand_dims(X['image'], -1))
 h_0 = tf.zeros((hparams['batch_size'], hparams['hdim']))
 c_0 = tf.zeros((hparams['batch_size'], hparams['hdim']))
 lstm = tf.nn.rnn_cell.BasicLSTMCell(hparams['hdim'])
 
-output, (c1, h1), att = decode(feat, lstm, (c_0, h_0), attention, VOCAB_SIZE, hparams)
+output, (c1, h1), att = decode(feat, lstm, (c_0, h_0), attention, embeddings, hparams)
 
 # att, context = attention(feat, h_0, hdim=hdim, adim=adim, batch_size=batch_size)
 init_op = tf.initialize_all_variables()

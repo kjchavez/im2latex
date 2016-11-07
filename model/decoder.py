@@ -44,8 +44,22 @@ def attention(visual_features, h_t, hdim=256, vdim=512, adim=128, batch_size=2):
         context = tf.reduce_sum(visual_features * tf.expand_dims(att, -1), 1)
         return att, context
 
+def embedding_matrix(vocab_size, embedding_dim):
+    return variables.model_variable('embedding', shape=(vocab_size, embedding_dim),
+                                    initializer=tf.random_normal_initializer(
+                                        mean=0.0, stddev=0.01))
 
-def token_prob(ht, context, prev_token, vocab_size, hparams={}):
+def token_prob(ht, context, prev_token, embeddings, hparams={}):
+    """ Computes probability distribution for next output token.
+
+    Args:
+        ht: current hidden state of LSTM
+        context: attention-based visual context vector
+        prev_token: index of previously emitted token
+        embeddings:  matrix of embeddings for tokens
+    """
+    vocab_size = embeddings.get_shape()[0]
+
     hdim = hparams['hdim']
     vdim = hparams['vdim']
     odim = hparams['output_hidden_layer_dim']
@@ -67,7 +81,7 @@ def token_prob(ht, context, prev_token, vocab_size, hparams={}):
         return logits, probs
 
 
-def decode(feat, lstm, state_tuple, attn_fn, vocab_size, hparams={}):
+def decode(feat, lstm, state_tuple, attn_fn, embeddings, hparams={}):
     """ Runs a single step of decoding with attention.
 
     Args:
@@ -94,7 +108,7 @@ def decode(feat, lstm, state_tuple, attn_fn, vocab_size, hparams={}):
     # the previous step in the sequence, a la Show, Attend, and Tell.
     x = context
     output, state_tuple = lstm(x, state_tuple)
-    logits, probs = token_prob(state_tuple[0], context, None, vocab_size,
+    logits, probs = token_prob(state_tuple[0], context, None, embeddings,
                                hparams=hparams)
     return probs, state_tuple, attention
 
