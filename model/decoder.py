@@ -49,34 +49,33 @@ def embedding_matrix(vocab_size, embedding_dim):
                                     initializer=tf.random_normal_initializer(
                                         mean=0.0, stddev=0.01))
 
-def token_prob(ht, context, prev_token_embedding, embeddings, hparams={}):
+def token_prob(ht, context, prev_token_embedding, vocab_size, hparams={}):
     """ Computes probability distribution for next output token.
 
     Args:
         ht: current hidden state of LSTM
         context: attention-based visual context vector
-        prev_token: index of previously emitted token
-        embeddings:  matrix of embeddings for tokens
-    """
-    vocab_size = embeddings.get_shape()[0]
+        prev_token_embedding: embedding of previously emitted token
+        vocab_size: cardinality of set of possible output tokens
 
+    Returns:
+        (logits, probs) over the set of |vocab_size| tokens.
+    """
     hdim = hparams['hdim']
     vdim = hparams['vdim']
-    odim = hparams['output_hidden_layer_dim']
-
-    assert odim == embeddings.get_shape()[1], "%d != %d" % (odim,
-                                                            embeddings.get_shape()[1])
+    embedding_dim = hparams['embedding_dim']
 
     with tf.variable_scope("output"):
-        L_h = variables.model_variable('L_h', shape=(hdim, odim),
+        L_h = variables.model_variable('L_h', shape=(hdim, embedding_dim),
                                        initializer=tf.random_normal_initializer(
                                             mean=0.0, stddev=np.sqrt(2.0/hdim)))
-        L_c = variables.model_variable('L_c', shape=(vdim, odim),
+        L_c = variables.model_variable('L_c', shape=(vdim, embedding_dim),
                                        initializer=tf.random_normal_initializer(
                                             mean=0.0, stddev=np.sqrt(2.0/vdim)))
-        L_o = variables.model_variable('L_o', shape=(odim, vocab_size),
+        L_o = variables.model_variable('L_o', shape=(embedding_dim, vocab_size),
                                        initializer=tf.random_normal_initializer(
-                                            mean=0.0, stddev=np.sqrt(2.0/odim)))
+                                           mean=0.0,
+                                           stddev=np.sqrt(2.0/embedding_dim)))
 
         # We might want a non-linearity between the matmuls.
         logits = tf.matmul(tf.matmul(ht, L_h) + tf.matmul(context, L_c) + prev_token_embedding, L_o)
@@ -100,6 +99,7 @@ def decode(feat, lstm, state_tuple, attn_fn, prev_token, embeddings, hparams={})
     hdim = hparams['hdim']
     vdim = hparams['vdim']
     adim = hparams['adim']
+    vocab_size = embeddings.get_shape()[1]
     batch_size = hparams['batch_size']
     c_state, m_state = state_tuple
 
@@ -115,7 +115,7 @@ def decode(feat, lstm, state_tuple, attn_fn, prev_token, embeddings, hparams={})
     print "context shape:", context.get_shape()
     x = tf.concat(1, [prev_embedding, context])
     output, state_tuple = lstm(x, state_tuple)
-    logits, probs = token_prob(state_tuple[0], context, prev_embedding, embeddings,
+    logits, probs = token_prob(state_tuple[0], context, prev_embedding, vocab_size,
                                hparams=hparams)
     return probs, state_tuple, attention
 

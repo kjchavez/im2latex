@@ -10,7 +10,6 @@ hparams = {
     'vdim': 512,
     'batch_size': 2,
     'embedding_dim': 128,
-    'output_hidden_layer_dim': 128
 }
 
 with open('character_mapping.txt') as fp:
