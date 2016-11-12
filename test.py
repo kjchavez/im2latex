@@ -22,9 +22,11 @@ X, y = get_train_data(batch_size=hparams['batch_size'])
 feat = convolutional_features(tf.expand_dims(X['image'], -1))
 h_0 = tf.zeros((hparams['batch_size'], hparams['hdim']))
 c_0 = tf.zeros((hparams['batch_size'], hparams['hdim']))
+init_token = tf.zeros((2,1), dtype=tf.int32)
 lstm = tf.nn.rnn_cell.BasicLSTMCell(hparams['hdim'])
 
-output, (c1, h1), att = decode(feat, lstm, (c_0, h_0), attention, embeddings, hparams)
+output, (c1, h1), att = decode(feat, lstm, (c_0, h_0), attention, init_token,
+                               embeddings, hparams)
 
 # att, context = attention(feat, h_0, hdim=hdim, adim=adim, batch_size=batch_size)
 init_op = tf.initialize_all_variables()
