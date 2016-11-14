@@ -6,6 +6,8 @@ from tensorflow.python.ops import parsing_ops
 train_filename = "/home/kevin/projects/im2latex/im2latex_train.tfrecord"
 dev_filename = "/home/kevin/projects/im2latex/im2latex_dev.tfrecord"
 
+PAD_ID = 0
+
 def preprocess(image):
     return image - 0.5
 
@@ -20,10 +22,14 @@ def get_feature_input(filepattern, batch_size=1):
             "image_raw": tf.FixedLenFeature([], tf.string),
             "height": tf.FixedLenFeature([], tf.int64),
             "width": tf.FixedLenFeature([], tf.int64),
+            # 'label' could also just be stored as the string?
             "label": tf.VarLenFeature(tf.int64)
         })
 
     label = tf.cast(features.pop('label'), tf.int32)
+    label = tf.sparse_to_dense(label.indices, label.shape, label.values,
+                       default_value=PAD_ID)
+    weights = tf.cast(tf.where(label != PAD_ID), tf.float32)
 
     image = tf.cast(tf.decode_raw(features['image_raw'], tf.uint8),
                      tf.float32)

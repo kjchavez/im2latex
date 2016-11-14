@@ -1,7 +1,8 @@
 import tensorflow as tf
 from model.input import get_train_data
 from model.encoder import convolutional_features
-from model.decoder import attention, decode, embedding_matrix
+from model.decoder import *
+from model.att_model import *
 import numpy as np
 
 hparams = {
@@ -24,7 +25,7 @@ c_0 = tf.zeros((hparams['batch_size'], hparams['hdim']))
 init_token = tf.zeros((2,1), dtype=tf.int32)
 lstm = tf.nn.rnn_cell.BasicLSTMCell(hparams['hdim'])
 
-output, (c1, h1), att = decode(feat, lstm, (c_0, h_0), attention, init_token,
+logits, output, (c1, h1), att = decode(feat, lstm, (c_0, h_0), attention, init_token,
                                embeddings, hparams)
 
 # att, context = attention(feat, h_0, hdim=hdim, adim=adim, batch_size=batch_size)
@@ -35,6 +36,7 @@ with tf.Session() as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     sess.run(init_op)
+    print "Y:", y.eval()
     feat_val, att_val, out_val = sess.run([feat, att, output])
     coord.request_stop()
     coord.join(threads)
