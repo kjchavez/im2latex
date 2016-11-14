@@ -61,17 +61,17 @@ def token_prob(ht, context, prev_token_embedding, vocab_size, hparams={}):
     vdim = hparams['vdim']
     embedding_dim = hparams['embedding_dim']
 
-    # with tf.variable_scope("output"):
-    L_h = variables.model_variable('L_h', shape=(hdim, embedding_dim),
-                                   initializer=tf.random_normal_initializer(
-                                        mean=0.0, stddev=np.sqrt(2.0/hdim)))
-    L_c = variables.model_variable('L_c', shape=(vdim, embedding_dim),
-                                   initializer=tf.random_normal_initializer(
-                                        mean=0.0, stddev=np.sqrt(2.0/vdim)))
-    L_o = variables.model_variable('L_o', shape=(embedding_dim, vocab_size),
-                                   initializer=tf.random_normal_initializer(
-                                       mean=0.0,
-                                       stddev=np.sqrt(2.0/embedding_dim)))
+    with tf.variable_scope("output"):
+        L_h = variables.model_variable('L_h', shape=(hdim, embedding_dim),
+                                       initializer=tf.random_normal_initializer(
+                                            mean=0.0, stddev=np.sqrt(2.0/hdim)))
+        L_c = variables.model_variable('L_c', shape=(vdim, embedding_dim),
+                                       initializer=tf.random_normal_initializer(
+                                            mean=0.0, stddev=np.sqrt(2.0/vdim)))
+        L_o = variables.model_variable('L_o', shape=(embedding_dim, vocab_size),
+                                       initializer=tf.random_normal_initializer(
+                                           mean=0.0,
+                                           stddev=np.sqrt(2.0/embedding_dim)))
 
     # We might want a non-linearity between the matmuls.
     logits = tf.matmul(tf.matmul(ht, L_h) + tf.matmul(context, L_c) + prev_token_embedding, L_o)

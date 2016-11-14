@@ -5,7 +5,7 @@ from model.input import get_train_data
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-config = tf.contrib.learn.RunConfig(save_checkpoints_secs=30)
+config = tf.contrib.learn.RunConfig(save_checkpoints_secs=100)
 
 with open('character_mapping.txt') as fp:
     char_mapping = [l for l in fp]
