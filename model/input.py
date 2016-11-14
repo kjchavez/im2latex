@@ -7,6 +7,7 @@ train_filename = "/home/kevin/projects/im2latex/im2latex_train.tfrecord"
 dev_filename = "/home/kevin/projects/im2latex/im2latex_dev.tfrecord"
 
 PAD_ID = 0
+GO_ID = 1
 
 def preprocess(image):
     return image - 0.5
@@ -27,9 +28,6 @@ def get_feature_input(filepattern, batch_size=1):
         })
 
     label = tf.cast(features.pop('label'), tf.int32)
-    label = tf.sparse_to_dense(label.indices, label.shape, label.values,
-                       default_value=PAD_ID)
-    weights = tf.cast(tf.where(label != PAD_ID), tf.float32)
 
     image = tf.cast(tf.decode_raw(features['image_raw'], tf.uint8),
                      tf.float32)
@@ -45,7 +43,12 @@ def get_feature_input(filepattern, batch_size=1):
                                   dynamic_pad=True,
                                   num_threads=4)
 
-    return {'image': image}, label
+    label = tf.reshape(tf.sparse_to_dense(label.indices, label.shape, label.values,
+                               default_value=PAD_ID), (batch_size, -1))
+    weights = tf.reshape(tf.cast(tf.not_equal(label, PAD_ID), tf.float32),
+                         (batch_size, -1))
+
+    return {'image': image}, {'target': label, 'weights': weights}
 
 def get_train_data(batch_size=1):
     return get_feature_input(train_filename, batch_size=batch_size)

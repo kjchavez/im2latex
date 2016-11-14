@@ -26,7 +26,10 @@ def model_fn(features, targets, mode, params):
     embeddings = embedding_matrix(VOCAB_SIZE, hparams['embedding_dim'])
     image = features['image']
     feat = convolutional_features(tf.expand_dims(image, -1))
-    target_token_seq = targets
+    target_token_seq = targets['target']
+    weights = targets['weights']
+    print "Weights:", weights.get_shape()
+    print "Targets:", target_token_seq.get_shape()
 
     lstm = LSTMSingleton.get_instance(hparams['hdim'])
 
@@ -38,12 +41,14 @@ def model_fn(features, targets, mode, params):
     prev_token = init_token
     logits_seq = []
     targets_seq = []
+    weights_seq = []
 
     # TODO(kjchavez): During 'inference' time, we actually want to decode until
     # we get a STOP token.
     with tf.variable_scope("decoder"):
         for i in xrange(hparams['unroll_length']):
             if (i > 0): tf.get_variable_scope().reuse_variables()
+            print "Iteration %d" % i
 
             logits, probs, (c, h), att = decode(feat, lstm, (c, h), attention,
                                                 prev_token, embeddings,
@@ -61,6 +66,7 @@ def model_fn(features, targets, mode, params):
 
                 # This is not actually *that* straightforward. Will need to revise.
                 targets_seq.append(target_token_seq[:, i])
+                weights_seq.append(weights[:, i])
 
                 prev_token = target_token_seq[:, i]
             else:
@@ -68,8 +74,8 @@ def model_fn(features, targets, mode, params):
 
     # Now add losses!
     if mode is tf.contrib.learn.ModeKeys.TRAIN:
-        weights = [tf.ones(hparams['batch_size'])]*hparams['unroll_length']
-        loss = tf.nn.seq2seq.sequence_loss(logits_seq, targets_seq, weights)
+        loss = tf.nn.seq2seq.sequence_loss(logits_seq, targets_seq,
+                                           weights_seq)
 
         global_step = variables.get_global_step()
         learning_rate = tf.train.exponential_decay(

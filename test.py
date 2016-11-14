@@ -36,7 +36,11 @@ with tf.Session() as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     sess.run(init_op)
-    print "Y:", y.eval()
+    y_val = sess.run(y)
+    print "Target:", y_val['target']
+    print "Weights:", y_val['weights']
+    print y_val['target'].shape
+    print y_val['weights'].shape
     feat_val, att_val, out_val = sess.run([feat, att, output])
     coord.request_stop()
     coord.join(threads)
