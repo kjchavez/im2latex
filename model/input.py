@@ -10,6 +10,7 @@ PAD_ID = 0
 GO_ID = 1
 
 def preprocess(image):
+    """ Downsample and center around zero. """
     return image - 0.5
 
 def get_feature_input(filepattern, batch_size=1):
@@ -43,10 +44,12 @@ def get_feature_input(filepattern, batch_size=1):
                                   dynamic_pad=True,
                                   num_threads=4)
 
-    label = tf.reshape(tf.sparse_to_dense(label.indices, label.shape, label.values,
-                               default_value=PAD_ID), (batch_size, -1))
-    weights = tf.reshape(tf.cast(tf.not_equal(label, PAD_ID), tf.float32),
-                         (batch_size, -1))
+    with tf.variable_scope("target_sequence"):
+        label = tf.reshape(tf.sparse_to_dense(label.indices, label.shape, label.values,
+                                   default_value=PAD_ID), (batch_size, -1),
+                           name="tokens")
+        weights = tf.reshape(tf.cast(tf.not_equal(label, PAD_ID), tf.float32),
+                             (batch_size, -1), name="weights")
 
     return {'image': image}, {'target': label, 'weights': weights}
 

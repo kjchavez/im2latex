@@ -15,10 +15,10 @@ params = {
     'hdim': 256,
     'adim': 128,
     'vdim': 512,
-    'batch_size': 2,
+    'batch_size': 10,
     'embedding_dim': 128,
-    'starter_learning_rate': 0.001,
-    'unroll_length': 4,
+    'starter_learning_rate': 0.01,
+    'unroll_length': 10,
     'token_map': char_mapping
 }
 estimator = tf.contrib.learn.Estimator(model_fn=model_fn,

@@ -1,12 +1,38 @@
 import tensorflow as tf
 from tensorflow.contrib.framework.python.ops import variables
+import math
 from .encoder import convolutional_features
 from .decoder import decode, attention
 
 def embedding_matrix(vocab_size, embedding_dim):
     return variables.model_variable('embedding', shape=(vocab_size, embedding_dim),
-                                    initializer=tf.random_normal_initializer(
-                                        mean=0.0, stddev=0.01))
+                                    initializer=tf.random_uniform_initializer(-1.0,
+                                                                              1.0))
+
+def init_stddev(target_stddev, in_dim):
+    return target_stddev / math.sqrt(in_dim)
+
+def get_initial_lstm_state(mean_context, hparams):
+    with tf.variable_scope("lstm_init"):
+        W_h = variables.model_variable('init_h_W',
+                                       shape=(hparams['vdim'], hparams['hdim']),
+                                       initializer=tf.random_normal_initializer(
+                                           mean=0.0,
+                                           stddev=init_stddev(2, hparams['vdim'])))
+        b_h = variables.model_variable('init_h_b',
+                                       initializer=tf.zeros_initializer(hparams['hdim']))
+        W_c = variables.model_variable('init_c_W',
+                                       shape=(hparams['vdim'], hparams['hdim']),
+                                       initializer=tf.random_normal_initializer(
+                                           mean=0.0,
+                                           stddev=init_stddev(2, hparams['vdim'])))
+        b_c = variables.model_variable('init_c_b',
+                                       initializer=tf.zeros_initializer(hparams['hdim']))
+
+        initial_hidden = tf.nn.tanh(tf.matmul(mean_context, W_h) + b_h)
+        initial_memory = tf.nn.tanh(tf.matmul(mean_context, W_c) + b_c)
+        return (initial_hidden, initial_memory)
+
 
 class LSTMSingleton(object):
     lstm = None
@@ -18,7 +44,7 @@ class LSTMSingleton(object):
         return LSTMSingleton.lstm
 
 def start_sequence_token(batch_size):
-    return tf.zeros(batch_size, dtype=tf.int32)
+    return tf.ones(batch_size, dtype=tf.int32)
 
 def model_fn(features, targets, mode, params):
     hparams = params
@@ -33,9 +59,7 @@ def model_fn(features, targets, mode, params):
 
     lstm = LSTMSingleton.get_instance(hparams['hdim'])
 
-    # TODO(kjchavez): Compute these based on the average of the conv. features.
-    h = tf.zeros((hparams['batch_size'], hparams['hdim']))
-    c = tf.zeros((hparams['batch_size'], hparams['hdim']))
+    h, c = get_initial_lstm_state(tf.reduce_mean(feat, (1,2)), params)
 
     init_token = start_sequence_token(hparams['batch_size'])
     prev_token = init_token
@@ -88,6 +112,10 @@ def model_fn(features, targets, mode, params):
         optimizer = tf.train.GradientDescentOptimizer(learning_rate)
 
         # Need to add summary for GRADIENTS!!
+        gradients = tf.gradients(loss, tf.trainable_variables())
+        for g in gradients:
+            tf.histogram_summary("%s_grad" % g.name, g)
+
         train_op = optimizer.minimize(loss, global_step=global_step)
         tf.scalar_summary("train_loss", loss)
         return (None, loss, train_op)

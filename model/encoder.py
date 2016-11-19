@@ -22,12 +22,13 @@ def max_pool2(x):
     return tf.nn.max_pool(x, [1, 2, 2, 1], [1, 2, 2, 1], 'SAME')
 
 def convolutional_features(image):
-    f = conv_layer("conv1", [3, 3, 1, 64], image)
-    f = max_pool2(f)
-    f = conv_layer("conv2", [3, 3, 64, 128], f)
-    f = max_pool2(f)
-    f = conv_layer("conv3", [3, 3, 128, 256], f)
-    f = max_pool2(f)
-    f = conv_layer("conv4", [3, 3, 256, 512], f)
-    # Note, we may want to leave off the ReLU from the topmost layer.
-    return f
+    with tf.variable_scope("encoder"):
+        f = conv_layer("conv1", [3, 3, 1, 64], image)
+        f = max_pool2(f)
+        f = conv_layer("conv2", [3, 3, 64, 128], f)
+        f = max_pool2(f)
+        f = conv_layer("conv3", [3, 3, 128, 256], f)
+        f = max_pool2(f)
+        f = conv_layer("conv4", [3, 3, 256, 512], f)
+        # Note, we may want to leave off the ReLU from the topmost layer.
+        return f
