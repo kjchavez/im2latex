@@ -125,14 +125,20 @@ def model_fn(features, targets, mode, params):
 
         # TODO(kjchavez): It's been suggested that ADAM might be a good
         # optimizer for this problem.
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+        optimizer = tf.train.AdamOptimizer(hparams['starter_learning_rate'],
+                                           epsilon=hparams['epsilon'])
+        grads_and_vars = optimizer.compute_gradients(loss,
+                                                     tf.trainable_variables())
 
-        # Need to add summary for GRADIENTS!!
         gradients = tf.gradients(loss, tf.trainable_variables())
-        for g in gradients:
-            tf.histogram_summary("%s_grad" % g.name, g)
+        for gv in grads_and_vars:
+            tf.histogram_summary("%s_grad" % gv[0].name, gv[0])
 
-        train_op = optimizer.minimize(loss, global_step=global_step)
+        train_op = optimizer.apply_gradients(grads_and_vars,
+                                             global_step=global_step)
+
+
+        # train_op = optimizer.minimize(loss, global_step=global_step)
         tf.scalar_summary("train_loss", loss)
         return (None, loss, train_op)
     else:

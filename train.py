@@ -15,6 +15,7 @@ with open('character_mapping.txt') as fp:
 params = {
     'hdim': 256,
     'adim': 128,
+    'epsilon': 1e-8,
     'vdim': 512,
     'batch_size': 10,
     'embedding_dim': 128,
