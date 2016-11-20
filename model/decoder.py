@@ -103,11 +103,12 @@ def decode(feat, lstm, state_tuple, attn_fn, prev_token, embeddings,
     attention, context = attn_fn(feat, m_state, hdim=hdim, vdim=vdim, adim=adim,
                                  batch_size=batch_size)
 
-    prev_embedding = tf.squeeze(tf.nn.embedding_lookup(embeddings, prev_token))
+    #prev_embedding = tf.squeeze(tf.nn.embedding_lookup(embeddings, prev_token))
+    prev_embedding = tf.nn.embedding_lookup(embeddings, prev_token)
     print "Prev embedding:", prev_embedding.get_shape()
     print "Context:", context.get_shape()
     x = tf.concat(1, [prev_embedding, context])
     output, state_tuple = lstm(x, state_tuple)
-    logits, probs = token_prob(state_tuple[0], context, prev_embedding, vocab_size,
+    logits, probs = token_prob(output, context, prev_embedding, vocab_size,
                                hparams=hparams)
     return logits, probs, state_tuple, attention

@@ -52,10 +52,12 @@ def model_fn(features, targets, mode, params):
     embeddings = embedding_matrix(VOCAB_SIZE, hparams['embedding_dim'])
     image = features['image']
     feat = convolutional_features(tf.expand_dims(image, -1))
-    target_token_seq = targets['target']
-    weights = targets['weights']
-    print "Weights:", weights.get_shape()
-    print "Targets:", target_token_seq.get_shape()
+
+    if mode is tf.contrib.learn.ModeKeys.TRAIN:
+        target_token_seq = targets['target']
+        weights = targets['weights']
+        print "Weights:", weights.get_shape()
+        print "Targets:", target_token_seq.get_shape()
 
     lstm = LSTMSingleton.get_instance(hparams['hdim'])
 
@@ -66,6 +68,8 @@ def model_fn(features, targets, mode, params):
     logits_seq = []
     targets_seq = []
     weights_seq = []
+    attention_seq = []
+    predicted_tokens = []
 
     # TODO(kjchavez): During 'inference' time, we actually want to decode until
     # we get a STOP token.
@@ -91,10 +95,22 @@ def model_fn(features, targets, mode, params):
                 # This is not actually *that* straightforward. Will need to revise.
                 targets_seq.append(target_token_seq[:, i])
                 weights_seq.append(weights[:, i])
+                attention_seq.append(att)
 
                 prev_token = target_token_seq[:, i]
             else:
                 prev_token = tf.argmax(logits, 1, name="argmax_token")
+                predicted_tokens.append(prev_token)
+
+    # Track a few important distributions.
+    if mode is tf.contrib.learn.ModeKeys.TRAIN:
+        focus = tf.concat(0, [tf.argmax(att, 1) for
+                              att in attention_seq])
+        tf.histogram_summary("focus", focus)
+
+        pred_token = tf.concat(0, [tf.argmax(logits, 1) for
+                              logits in logits_seq])
+        tf.histogram_summary("pred_token", pred_token)
 
     # Now add losses!
     if mode is tf.contrib.learn.ModeKeys.TRAIN:
@@ -120,4 +136,5 @@ def model_fn(features, targets, mode, params):
         tf.scalar_summary("train_loss", loss)
         return (None, loss, train_op)
     else:
-        return (targets_seq, None, None)
+        # Predicted tokens -> string?
+        return (predicted_tokens, None, None)

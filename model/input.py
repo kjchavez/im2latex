@@ -14,35 +14,35 @@ def preprocess(image):
     return image - 0.5
 
 def get_feature_input(filepattern, batch_size=1):
-    filename_queue = \
-        tf.train.string_input_producer(tf.matching_files(filepattern))
-    reader = tf.TFRecordReader()
-    _, serialized_example = reader.read(filename_queue)
-    features = tf.parse_single_example(
-        serialized_example,
-        features = {
-            "image_raw": tf.FixedLenFeature([], tf.string),
-            "height": tf.FixedLenFeature([], tf.int64),
-            "width": tf.FixedLenFeature([], tf.int64),
-            # 'label' could also just be stored as the string?
-            "label": tf.VarLenFeature(tf.int64)
-        })
+    with tf.variable_scope("DataLoader"):
+        filename_queue = \
+            tf.train.string_input_producer(tf.matching_files(filepattern))
+        reader = tf.TFRecordReader()
+        _, serialized_example = reader.read(filename_queue)
+        features = tf.parse_single_example(
+            serialized_example,
+            features = {
+                "image_raw": tf.FixedLenFeature([], tf.string),
+                "height": tf.FixedLenFeature([], tf.int64),
+                "width": tf.FixedLenFeature([], tf.int64),
+                "label": tf.VarLenFeature(tf.int64)
+            })
 
-    label = tf.cast(features.pop('label'), tf.int32)
+        label = tf.cast(features.pop('label'), tf.int32)
 
-    image = tf.cast(tf.decode_raw(features['image_raw'], tf.uint8),
-                     tf.float32)
+        image = tf.cast(tf.decode_raw(features['image_raw'], tf.uint8),
+                         tf.float32)
 
-    shape = tf.cast(tf.concat(0, [tf.reshape(features['height'], (1,)),
-                          tf.reshape(features['width'], (1,))]), tf.int32)
+        shape = tf.cast(tf.concat(0, [tf.reshape(features['height'], (1,)),
+                              tf.reshape(features['width'], (1,))]), tf.int32)
 
-    image = preprocess(tf.reshape(image, shape))
+        image = preprocess(tf.reshape(image, shape))
 
-    image, label = tf.train.batch([image, label],
-                                  batch_size=batch_size,
-                                  capacity=200,
-                                  dynamic_pad=True,
-                                  num_threads=4)
+        image, label = tf.train.batch([image, label],
+                                      batch_size=batch_size,
+                                      capacity=200,
+                                      dynamic_pad=True,
+                                      num_threads=4)
 
     with tf.variable_scope("target_sequence"):
         label = tf.reshape(tf.sparse_to_dense(label.indices, label.shape, label.values,

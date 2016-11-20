@@ -15,7 +15,6 @@ def conv_layer(name, shape, image):
 
     embedding = tf.nn.bias_add(tf.nn.conv2d(image, kernel, [1, 1, 1, 1],
                                           padding='SAME'), b)
-    embedding = tf.nn.relu(embedding)
     return embedding
 
 def max_pool2(x):
@@ -24,11 +23,16 @@ def max_pool2(x):
 def convolutional_features(image):
     with tf.variable_scope("encoder"):
         f = conv_layer("conv1", [3, 3, 1, 64], image)
+        f = tf.nn.relu(f)
         f = max_pool2(f)
         f = conv_layer("conv2", [3, 3, 64, 128], f)
+        f = tf.nn.relu(f)
         f = max_pool2(f)
         f = conv_layer("conv3", [3, 3, 128, 256], f)
+        f = tf.nn.relu(f)
         f = max_pool2(f)
         f = conv_layer("conv4", [3, 3, 256, 512], f)
-        # Note, we may want to leave off the ReLU from the topmost layer.
+        tf.histogram_summary("visual_features", f)
+        tf.image_summary("visual_feature_map/0", f[:, :, :, 0:1])
+        # No ReLU
         return f
