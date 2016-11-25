@@ -6,6 +6,7 @@ import argparse
 import zmq
 from model.att_model import model_fn
 from model.input import get_train_data
+from util.pad import pad_image
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -22,7 +23,7 @@ params = {
     'batch_size': 1,
     'embedding_dim': 128,
     'starter_learning_rate': 0.0005,
-    'unroll_length': 10,
+    'unroll_length': 30,
     'token_map': char_mapping
 }
 parser = argparse.ArgumentParser()
@@ -35,10 +36,11 @@ sock.bind(args.address)
 def input_fn():
     filename = sock.recv()
     im = cv2.imread(filename)
-    binary_im = tf.constant(
-                    np.expand_dims(
-                        np.all(im == 0, 2).astype(np.float32) - 0.5,
-                        0))
+    h_buckets = [60, 100, 200, 350]
+    w_buckets = [400, 800, 1000, 1200, 1400]
+    buckets = [(h, w) for h in h_buckets for w in w_buckets]
+    im, _ = pad_image(np.all(im == 0, 2).astype(np.float32), buckets, value=0)
+    binary_im = tf.constant(np.expand_dims(im - 0.5, 0))
     return {'image': binary_im}
 
 estimator = tf.contrib.learn.Estimator(model_fn=model_fn,

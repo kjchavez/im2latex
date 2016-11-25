@@ -8,6 +8,7 @@ dev_filename = "/home/kevin/projects/im2latex/im2latex_dev.tfrecord"
 
 PAD_ID = 0
 GO_ID = 1
+STOP_ID = 2
 
 def preprocess(image):
     """ Downsample and center around zero. """

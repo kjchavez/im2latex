@@ -20,7 +20,8 @@ params = {
     'batch_size': 10,
     'embedding_dim': 128,
     'starter_learning_rate': 0.0005,
-    'unroll_length': 10,
+    'unroll_length': 30,
+    'output_feedback': False,
     'token_map': char_mapping
 }
 parser = argparse.ArgumentParser()
@@ -52,25 +53,3 @@ if args.mode == "train":
     """
     estimator.fit(input_fn=lambda: get_train_data(batch_size=params['batch_size']),
                   monitors=monitors, steps=1000000)
-
-elif args.mode == "infer":
-    import cv2
-    import numpy as np
-    im = cv2.imread(args.image)
-    def input_fn():
-        binary_im = tf.constant(
-                        np.expand_dims(
-                            np.all(im == 0, 2).astype(np.float32) - 0.5,
-                            0))
-        return {'image': binary_im}
-
-    params['batch_size'] = 1
-    estimator = tf.contrib.learn.Estimator(model_fn=model_fn,
-                                           model_dir="/tmp/test", config=config,
-                                           params=params)
-
-
-    print "Prediction"
-    print "====================="
-    tokens = estimator.predict(input_fn=input_fn)
-    print ''.join([char_mapping[t[0]] for t in tokens])

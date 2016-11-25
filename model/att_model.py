@@ -47,6 +47,8 @@ def start_sequence_token(batch_size):
     return tf.ones(batch_size, dtype=tf.int32)
 
 def model_fn(features, targets, mode, params):
+    # TODO(kjchavez): Consider using 'embedding_attention_decoder' from
+    # seq2seq.py
     hparams = params
     VOCAB_SIZE = len(hparams['token_map'])
     embeddings = embedding_matrix(VOCAB_SIZE, hparams['embedding_dim'])
@@ -97,7 +99,10 @@ def model_fn(features, targets, mode, params):
                 weights_seq.append(weights[:, i])
                 attention_seq.append(att)
 
-                prev_token = target_token_seq[:, i]
+                if hparams['output_feedback']:
+                    prev_token = tf.argmax(logits, 1, name="argmax_token")
+                else:
+                    prev_token = target_token_seq[:, i]
             else:
                 prev_token = tf.argmax(logits, 1, name="argmax_token")
                 predicted_tokens.append(prev_token)
