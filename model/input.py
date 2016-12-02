@@ -10,6 +10,21 @@ PAD_ID = 0
 GO_ID = 1
 STOP_ID = 2
 
+def extract_image(image_placeholder):
+    """ Creates the preprocessed input from image_placeholder.
+
+    Args:
+        image_placeholder: a placeholder with filenames of size (batch_size, 1)
+    """
+    images = [tf.image.decode_png(tf.read_file(image_placeholder[i]),
+                                  channels=1)
+              for i in xrange(image_placeholder.get_shape()[0])]
+
+    # Pad images so that they may be batched together.
+
+    return image_data
+
+
 def preprocess(image):
     """ Downsample and center around zero. """
     return image - 0.5
@@ -52,7 +67,13 @@ def get_feature_input(filepattern, batch_size=1):
         weights = tf.reshape(tf.cast(tf.not_equal(label, PAD_ID), tf.float32),
                              (batch_size, -1), name="weights")
 
-    return {'image': image}, {'target': label, 'weights': weights}
+        # TODO(kjchavez): Consider just adding this to the serialized example
+        # data.
+        sequence_length = tf.reduce_sum(tf.cast(tf.not_equal(label, PAD_ID),
+                                                tf.int32), 1)
+
+    return {'image': image}, {'target': label, 'weights': weights,
+                              'sequence_length': sequence_length}
 
 def get_train_data(batch_size=1):
     return get_feature_input(train_filename, batch_size=batch_size)

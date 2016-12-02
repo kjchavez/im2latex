@@ -1,6 +1,7 @@
 """ Attention-based decoder from arbitrarily-sized visual features. """
 import tensorflow as tf
 from tensorflow.contrib.framework.python.ops import variables
+from tensorflow.python.ops import array_ops
 import numpy as np
 
 def attention(visual_features, h_t, hdim=256, vdim=512, adim=128,
@@ -78,6 +79,82 @@ def token_prob(ht, context, prev_token_embedding, vocab_size, hparams={}):
     probs = tf.nn.softmax(logits, -1)
     return logits, probs
 
+def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
+                attn_fn, init_token, embeddings, hparams={}):
+    """ Returns a loop function that can be used in the 'raw_rnn' function.
+
+    Args:
+        decoder_inputs: time-major decoder inputs
+        ...
+    """
+    input_shape = array_ops.shape(decoder_inputs)
+    time_steps = input_shape[0]
+    decoder_inputs_ta = tf.TensorArray(dtype=tf.float32, size=time_steps)
+    decoder_inputs_ta = decoder_inputs_ta.unpack(decoder_inputs)
+    vocab_size = embeddings.get_shape()[1]
+
+    def loop_fn(time, cell_output, cell_state, prev_token_embedding):
+        """
+        The loop_state is the embedding for the previous token.
+        """
+        print "Calling loop_fn..."
+        reuse_vars = cell_output is not None
+
+        with tf.variable_scope("decoder", reuse=reuse_vars):
+            # If it's the initial iteration, there is some special setup to do.
+            if cell_output is None:  # initial iteration
+                elements_finished = (time >= sequence_length)
+                next_cell_state = initial_state
+                selected_token_embedding = tf.nn.embedding_lookup(embeddings,
+                                                                  init_token)
+                attention, context = attn_fn(feat, initial_state[1], hdim=hparams['hdim'],
+                                             vdim=hparams['vdim'], adim=hparams['adim'],
+                                             batch_size=hparams['batch_size'])
+
+                # Ignored on first iteration, but used to setup graph.
+                logits, probs = token_prob(initial_state[1], context,
+                                           selected_token_embedding, vocab_size,
+                                           hparams=hparams)
+
+                next_input = tf.concat(1, [selected_token_embedding, context])
+                return (elements_finished, next_input, next_cell_state,
+                        None, selected_token_embedding)
+
+            # All subsequent iterations
+            tf.get_variable_scope().reuse_variables()
+            next_cell_state = cell_state
+            elements_finished = (time >= sequence_length)
+            finished = tf.reduce_all(elements_finished)
+
+            # Given the cell output, the emit output is a distribution over tokens.
+            attention, context = attn_fn(feat, cell_output, hdim=hparams['hdim'],
+                                         vdim=hparams['vdim'], adim=hparams['adim'],
+                                         batch_size=hparams['batch_size'])
+            logits, probs = token_prob(cell_output, context, prev_token_embedding, vocab_size,
+                                       hparams=hparams)
+            emit_output = logits
+
+            # To produce the next input from the current output, we must do a
+            # couple of things. First, we choose a token from the token
+            # distribution (or use the 'true' token).
+            if hparams['output_feedback']:
+                # TODO(kjchavez): Need to stop if token is the STOP token.
+                selected_token = tf.argmax(logits, 1, name="argmax_token")
+            else:
+                selected_token_embedding = decoder_inputs_ta.read(time)
+
+            selected_token_embedding = tf.nn.embedding_lookup(embeddings, selected_token)
+            next_input = tf.cond(
+                finished,
+                lambda: tf.zeros([hparams['batch_size'],
+                                  hparams['embedding_dim'] +hparams['vdim']], dtype=tf.float32),
+                lambda: tf.concat(1, [selected_token_embedding, context]))
+
+        return (elements_finished, next_input, next_cell_state,
+                emit_output, selected_token_embedding)
+
+
+    return loop_fn
 
 def decode(feat, lstm, state_tuple, attn_fn, prev_token, embeddings,
            hparams={}):
