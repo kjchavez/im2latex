@@ -4,7 +4,7 @@ from tensorflow.contrib.framework.python.ops import variables
 from tensorflow.python.ops import array_ops
 import numpy as np
 
-from model.input import STOP_ID
+from .input import STOP_ID
 
 def attention(visual_features, h_t, hdim=256, vdim=512, adim=128,
               batch_size=2):
@@ -139,7 +139,10 @@ def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
             if hparams['output_feedback']:
                 selected_token = tf.argmax(logits, 1, name="argmax_token")
             else:
-                selected_token = decoder_inputs_ta.read(time)
+                # We should be careful not to read past the last token.
+                # Since we are using time - 1, this implies that the
+                # decoder_inputs should NOT contain the GO token.
+                selected_token = decoder_inputs_ta.read(time-1)
 
             selected_token_embedding = tf.nn.embedding_lookup(embeddings, selected_token)
             print "selected token embedding:", selected_token_embedding

@@ -1,8 +1,10 @@
 import tensorflow as tf
 from tensorflow.contrib.framework.python.ops import variables
+from tensorflow.python.ops import array_ops
 import math
 from .encoder import convolutional_features
-from .decoder import decode, attention
+from .decoder import decode, attention, get_loop_fn
+from .input import GO_ID
 
 def embedding_matrix(vocab_size, embedding_dim):
     return variables.model_variable('embedding', shape=(vocab_size, embedding_dim),
@@ -31,7 +33,7 @@ def get_initial_lstm_state(mean_context, hparams):
 
         initial_hidden = tf.nn.tanh(tf.matmul(mean_context, W_h) + b_h)
         initial_memory = tf.nn.tanh(tf.matmul(mean_context, W_c) + b_c)
-        return (initial_hidden, initial_memory)
+        return tf.nn.rnn_cell.LSTMStateTuple(initial_hidden, initial_memory)
 
 
 class LSTMSingleton(object):
@@ -44,7 +46,44 @@ class LSTMSingleton(object):
         return LSTMSingleton.lstm
 
 def start_sequence_token(batch_size):
+    assert GO_ID == 1
     return tf.ones(batch_size, dtype=tf.int32)
+
+def dynamic_model_fn(features, targets, mode, params):
+    VOCAB_SIZE = len(params['token_map'])
+    embeddings = embedding_matrix(VOCAB_SIZE, params['embedding_dim'])
+    image = features['image']
+    visual_features = convolutional_features(tf.expand_dims(image, -1))
+    lstm = LSTMSingleton.get_instance(params['hdim'])
+    if mode is tf.contrib.learn.ModeKeys.TRAIN:
+        target_tokens = targets['target']
+        # Decoder inputs should be in time-major order.
+        decoder_inputs = tf.to_int64(array_ops.transpose(target_tokens, [1, 0]))
+
+        sequence_length = targets['sequence_length']
+        initial_state = get_initial_lstm_state(
+            tf.reduce_mean(visual_features, (1,2)), params)
+        init_token = start_sequence_token(params['batch_size'])
+        fn = get_loop_fn(decoder_inputs, sequence_length, visual_features, lstm,
+                         initial_state, attention, init_token, embeddings,
+                         params)
+        token_logits, final_state, _ = tf.nn.raw_rnn(lstm, fn)
+
+        # 'token_logits' holds the log-probability of each token for each
+        # iteration of the decoding sequence.
+        fake_loss = tf.reduce_mean(token_logits.pack())
+
+        global_step = variables.get_global_step()
+        learning_rate = tf.train.exponential_decay(
+                            params['starter_learning_rate'],
+                            global_step, 20000,
+                            0.96, staircase=True)
+
+        optimizer = tf.train.AdamOptimizer(params['starter_learning_rate'],
+                                           epsilon=params['epsilon'])
+        train_op = optimizer.minimize(fake_loss, global_step=global_step)
+
+        return (None, fake_loss, train_op)
 
 def model_fn(features, targets, mode, params):
     # TODO(kjchavez): Consider using 'embedding_attention_decoder' from

@@ -11,7 +11,7 @@ hparams = {
     'vdim': 512,
     'batch_size': 2,
     'embedding_dim': 128,
-    'output_feedback': False,
+    'output_feedback': True,
 }
 
 with open('character_mapping.txt') as fp:
