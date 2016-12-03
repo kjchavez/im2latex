@@ -11,7 +11,7 @@ hparams = {
     'vdim': 512,
     'batch_size': 2,
     'embedding_dim': 128,
-    'output_feedback': True,
+    'output_feedback': False,
 }
 
 with open('character_mapping.txt') as fp:
@@ -32,7 +32,7 @@ logits, output, (c1, h1), att = decode(feat, lstm, (c_0, h_0), attention, init_t
 # Make 'y' time major.
 print y['target'].get_shape()
 print y['sequence_length'].get_shape()
-input_ = array_ops.transpose(y['target'], [1, 0])
+input_ = tf.to_int64(array_ops.transpose(y['target'], [1, 0]))
 #fn = get_loop_fn(input_, y['sequence_length'], feat, lstm, (c_0, h_0), attention, init_token,
 #                 embeddings, hparams)
 

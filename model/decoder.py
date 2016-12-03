@@ -4,6 +4,8 @@ from tensorflow.contrib.framework.python.ops import variables
 from tensorflow.python.ops import array_ops
 import numpy as np
 
+from model.input import STOP_ID
+
 def attention(visual_features, h_t, hdim=256, vdim=512, adim=128,
               batch_size=2):
     """ Returns a tensor of 'attention' to the given visual_features.
@@ -89,7 +91,7 @@ def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
     """
     input_shape = array_ops.shape(decoder_inputs)
     time_steps = input_shape[0]
-    decoder_inputs_ta = tf.TensorArray(dtype=tf.float32, size=time_steps)
+    decoder_inputs_ta = tf.TensorArray(dtype=decoder_inputs.dtype, size=time_steps)
     decoder_inputs_ta = decoder_inputs_ta.unpack(decoder_inputs)
     vocab_size = embeddings.get_shape()[1]
 
@@ -97,12 +99,11 @@ def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
         """
         The loop_state is the embedding for the previous token.
         """
-        print "Calling loop_fn..."
-        reuse_vars = cell_output is not None
-
-        with tf.variable_scope("decoder", reuse=reuse_vars):
+        with tf.variable_scope("decoder"): #, reuse=reuse_vars):
             # If it's the initial iteration, there is some special setup to do.
-            if cell_output is None:  # initial iteration
+            if cell_output is None:
+                # TODO(kjchavez): It would be cleaner to instantiate all model
+                # variables outside the loop function and just use them here.
                 elements_finished = (time >= sequence_length)
                 next_cell_state = initial_state
                 selected_token_embedding = tf.nn.embedding_lookup(embeddings,
@@ -123,8 +124,6 @@ def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
             # All subsequent iterations
             tf.get_variable_scope().reuse_variables()
             next_cell_state = cell_state
-            elements_finished = (time >= sequence_length)
-            finished = tf.reduce_all(elements_finished)
 
             # Given the cell output, the emit output is a distribution over tokens.
             attention, context = attn_fn(feat, cell_output, hdim=hparams['hdim'],
@@ -138,12 +137,17 @@ def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
             # couple of things. First, we choose a token from the token
             # distribution (or use the 'true' token).
             if hparams['output_feedback']:
-                # TODO(kjchavez): Need to stop if token is the STOP token.
                 selected_token = tf.argmax(logits, 1, name="argmax_token")
             else:
-                selected_token_embedding = decoder_inputs_ta.read(time)
+                selected_token = decoder_inputs_ta.read(time)
 
             selected_token_embedding = tf.nn.embedding_lookup(embeddings, selected_token)
+            print "selected token embedding:", selected_token_embedding
+
+            elements_finished = tf.logical_or(time >= sequence_length,
+                                              selected_token == STOP_ID)
+            finished = tf.reduce_all(elements_finished)
+
             next_input = tf.cond(
                 finished,
                 lambda: tf.zeros([hparams['batch_size'],
