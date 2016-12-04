@@ -49,6 +49,33 @@ def start_sequence_token(batch_size):
     assert GO_ID == 1
     return tf.ones(batch_size, dtype=tf.int32)
 
+def sequence_loss(logits, targets, weights,
+                  average_across_timesteps=True, average_across_batch=True,
+                  softmax_loss_function=None, name=None):
+  """Weighted cross-entropy loss for a sequence of logits, batch-collapsed.
+  Args:
+    logits: 3D Tensor of shape [batch_size x T x num_decoder_symbols].
+    targets: 2D int32 Tensor of shape [batch_size x T]
+    weights: 2D float Tensor of the shape as targets
+    average_across_timesteps: If set, divide the returned cost by the total
+      label weight.
+    average_across_batch: If set, divide the returned cost by the batch size.
+    softmax_loss_function: Function (inputs-batch, labels-batch) -> loss-batch
+      to be used instead of the standard softmax (the default if this is None).
+    name: Optional name for this operation, defaults to "sequence_loss".
+  Returns:
+    A scalar float Tensor: The average log-perplexity per symbol (weighted).
+  """
+  with tf.name_scope(name, "sequence_loss", [logits, targets, weights]):
+    crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, targets)
+    if average_across_timesteps:
+        crossent = tf.reduce_mean(crossent*weights, 1)
+
+    if average_across_batch:
+      crossent = tf.reduce_mean(crossent, 0)
+
+    return crossent
+
 def dynamic_model_fn(features, targets, mode, params):
     VOCAB_SIZE = len(params['token_map'])
     embeddings = embedding_matrix(VOCAB_SIZE, params['embedding_dim'])
@@ -71,7 +98,14 @@ def dynamic_model_fn(features, targets, mode, params):
 
         # 'token_logits' holds the log-probability of each token for each
         # iteration of the decoding sequence.
-        fake_loss = tf.reduce_mean(token_logits.pack())
+        # fake_loss = tf.reduce_mean(token_logits.pack())
+
+        # Get logits as packed tensor in batch-major order
+        token_logits = array_ops.transpose(token_logits.pack(), [1, 0, 2])
+
+        # For some reason, this is not the right length...
+        fake_loss = sequence_loss(token_logits, target_tokens,
+                                  targets['weights'])
 
         global_step = variables.get_global_step()
         learning_rate = tf.train.exponential_decay(

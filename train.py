@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 import argparse
-from model.att_model import model_fn
+from model.att_model import model_fn, dynamic_model_fn
 from model.input import get_train_data
 
 tf.logging.set_verbosity(tf.logging.INFO)
@@ -11,13 +11,14 @@ config = tf.contrib.learn.RunConfig(save_checkpoints_secs=100)
 with open('character_mapping.txt') as fp:
     char_mapping = [l.strip('\n') for l in fp]
     VOCAB_SIZE = len(char_mapping)
+    print "VOCAB SIZE:", VOCAB_SIZE
 
 params = {
-    'hdim': 256,
+    'hdim': 100,
     'adim': 128,
     'epsilon': 1e-8,
     'vdim': 512,
-    'batch_size': 10,
+    'batch_size': 4,
     'embedding_dim': 128,
     'starter_learning_rate': 0.0005,
     'unroll_length': 30,
@@ -30,7 +31,7 @@ parser.add_argument("--image", help="image filename")
 args = parser.parse_args()
 
 if args.mode == "train":
-    estimator = tf.contrib.learn.Estimator(model_fn=model_fn,
+    estimator = tf.contrib.learn.Estimator(model_fn=dynamic_model_fn,
                                            model_dir="/tmp/test", config=config,
                                            params=params)
 

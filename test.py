@@ -6,7 +6,7 @@ from model.att_model import *
 import numpy as np
 
 hparams = {
-    'hdim': 128,
+    'hdim': 100,
     'adim': 128,
     'vdim': 512,
     'batch_size': 2,
@@ -52,11 +52,11 @@ with tf.Session() as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     sess.run(init_op)
-    final_state_val, seq = sess.run([final_state, y['sequence_length']])
+    tar, seq = sess.run([y['target'], y['sequence_length']])
     coord.request_stop()
     coord.join(threads)
 
-print final_state_val
+print tar
 print seq
 
 """

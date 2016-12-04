@@ -93,7 +93,7 @@ def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
     time_steps = input_shape[0]
     decoder_inputs_ta = tf.TensorArray(dtype=decoder_inputs.dtype, size=time_steps)
     decoder_inputs_ta = decoder_inputs_ta.unpack(decoder_inputs)
-    vocab_size = embeddings.get_shape()[1]
+    vocab_size = embeddings.get_shape()[0]
 
     def loop_fn(time, cell_output, cell_state, prev_token_embedding):
         """
@@ -108,6 +108,7 @@ def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
                 next_cell_state = initial_state
                 selected_token_embedding = tf.nn.embedding_lookup(embeddings,
                                                                   init_token)
+                print "TOKEN EMBEDDING SHAPE:", selected_token_embedding.get_shape()
                 attention, context = attn_fn(feat, initial_state[1], hdim=hparams['hdim'],
                                              vdim=hparams['vdim'], adim=hparams['adim'],
                                              batch_size=hparams['batch_size'])
@@ -132,6 +133,7 @@ def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
             logits, probs = token_prob(cell_output, context, prev_token_embedding, vocab_size,
                                        hparams=hparams)
             emit_output = logits
+            print "Emit output shape:", emit_output.get_shape()
 
             # To produce the next input from the current output, we must do a
             # couple of things. First, we choose a token from the token
