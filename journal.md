@@ -38,3 +38,18 @@ A few things should be fixed, likely in this order:
 * For spatial padding, we will probably want to move the meaningful section around
   in the padded image. Not sure that this is possible with tf.batch() and
   dynamic_pad=True.
+
+# December 3, 2016
+
+Fully dynamic version of this model in TF is working. It uses the 'raw_rnn' function.
+
+Other thoughts:
+
+* Consider using "teacher forcing" (using the 'true' output as input to the next iteration) with curriculum learning (slowly decreasing the frequency of teacher forcing).
+* Add appropriate metrics again so that TensorBoard is informative.
+* Set up infra for hyperparameter optimization.
+* Good monitoring of hyperparameter trials. Can we do this in TensorBoard?
+* Visualization of decoding process.
+* Consolidate preprocessing during training vs. testing
+* Inference server should accept an actual image.
+* Shuffle training data (and create full-sized data set?)

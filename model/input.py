@@ -27,7 +27,9 @@ def extract_image(image_placeholder):
 
 def preprocess(image):
     """ Downsample and center around zero. """
-    return image - 0.5
+    downsampled = tf.nn.avg_pool(tf.expand_dims(tf.expand_dims(image, 2), 0), [1, 2, 2, 1], [1, 2, 2, 1], 'SAME')
+    downsampled = tf.squeeze(downsampled, [0, 3])
+    return downsampled - 0.5
 
 def get_feature_input(filepattern, batch_size=1):
     with tf.variable_scope("DataLoader"):

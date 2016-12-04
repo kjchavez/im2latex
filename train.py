@@ -17,11 +17,11 @@ params = {
     'hdim': 100, # This *shouldn't* have to be tied to VOCAB_SIZE...
     'adim': 128,
     'epsilon': 1e-8,
-    'vdim': 512,
-    'batch_size': 4,
-    'embedding_dim': 128,
-    'starter_learning_rate': 0.0005,
-    'feed_prev_output': False,
+    'vdim': 256,
+    'batch_size': 10,
+    'embedding_dim': 80,
+    'starter_learning_rate': 0.0001,
+    'feed_prev_output': True,
     'token_map': char_mapping
 }
 parser = argparse.ArgumentParser()

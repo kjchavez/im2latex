@@ -20,7 +20,7 @@ def conv_layer(name, shape, image):
 def max_pool2(x):
     return tf.nn.max_pool(x, [1, 2, 2, 1], [1, 2, 2, 1], 'SAME')
 
-def convolutional_features(image):
+def convolutional_features(image, vdim):
     with tf.variable_scope("encoder"):
         f = conv_layer("conv1", [3, 3, 1, 64], image)
         f = tf.nn.relu(f)
@@ -31,7 +31,7 @@ def convolutional_features(image):
         f = conv_layer("conv3", [3, 3, 128, 256], f)
         f = tf.nn.relu(f)
         f = max_pool2(f)
-        f = conv_layer("conv4", [3, 3, 256, 512], f)
+        f = conv_layer("conv4", [3, 3, 256, vdim], f)
         tf.histogram_summary("visual_features", f)
         tf.image_summary("visual_feature_map/0", f[:, :, :, 0:1])
         # No ReLU

@@ -84,7 +84,8 @@ def dynamic_model_fn(features, targets, mode, params):
     VOCAB_SIZE = len(params['token_map'])
     embeddings = embedding_matrix(VOCAB_SIZE, params['embedding_dim'])
     image = features['image']
-    visual_features = convolutional_features(tf.expand_dims(image, -1))
+    visual_features = convolutional_features(tf.expand_dims(image, -1),
+                                             params['vdim'])
     lstm = LSTMSingleton.get_instance(params['hdim'])
 
     if mode is tf.contrib.learn.ModeKeys.TRAIN:
@@ -145,7 +146,7 @@ def model_fn(features, targets, mode, params):
     VOCAB_SIZE = len(hparams['token_map'])
     embeddings = embedding_matrix(VOCAB_SIZE, hparams['embedding_dim'])
     image = features['image']
-    feat = convolutional_features(tf.expand_dims(image, -1))
+    feat = convolutional_features(tf.expand_dims(image, -1), hparams['vdim'])
 
     if mode is tf.contrib.learn.ModeKeys.TRAIN:
         target_token_seq = targets['target']

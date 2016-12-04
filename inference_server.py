@@ -19,9 +19,9 @@ with open('character_mapping.txt') as fp:
 params = {
     'hdim': 100,
     'adim': 128,
-    'vdim': 512,
+    'vdim': 256,
     'batch_size': 1,
-    'embedding_dim': 128,
+    'embedding_dim': 80,
     'starter_learning_rate': 0.0005,
     'token_map': char_mapping
 }
@@ -39,8 +39,10 @@ def input_fn():
     w_buckets = [400, 800, 1000, 1200, 1400]
     buckets = [(h, w) for h in h_buckets for w in w_buckets]
     im, _ = pad_image(np.all(im == 0, 2).astype(np.float32), buckets, value=0)
-    binary_im = tf.constant(np.expand_dims(im - 0.5, 0))
-    return {'image': binary_im}
+    binary_im = tf.constant(im) #np.expand_dims(im - 0.5, 0))
+    downsampled = tf.nn.avg_pool(tf.expand_dims(tf.expand_dims(binary_im, 2), 0), [1, 2, 2, 1], [1, 2, 2, 1], 'SAME')
+    downsampled = tf.squeeze(downsampled, [0, 3])
+    return {'image': tf.expand_dims(downsampled - 0.5, 0)}
 
 estimator = tf.contrib.learn.Estimator(model_fn=dynamic_model_fn,
                                        model_dir="/tmp/test", config=config,
@@ -52,6 +54,12 @@ while True:
     print "====================="
     tokens = estimator.predict(input_fn=input_fn)
     print tokens
-    latex = ''.join([char_mapping[t] for t in tokens[0]])
+    chars = []
+    for t in tokens[0]:
+        ch = char_mapping[t]
+        if ch == 'STOP':
+            break
+        chars.append(ch)
+    latex = ''.join(chars)
     print latex
     sock.send(latex)
