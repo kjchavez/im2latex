@@ -1,10 +1,14 @@
 import tensorflow as tf
 from tensorflow.contrib.framework.python.ops import variables
 from tensorflow.python.ops import array_ops
+import numpy as np
 import math
 from .encoder import convolutional_features
 from .decoder import decode, attention, get_loop_fn
 from .input import GO_ID
+
+# Max length of a sequence to decode during inference time.
+MAX_LENGTH = 200
 
 def embedding_matrix(vocab_size, embedding_dim):
     return variables.model_variable('embedding', shape=(vocab_size, embedding_dim),
@@ -82,30 +86,40 @@ def dynamic_model_fn(features, targets, mode, params):
     image = features['image']
     visual_features = convolutional_features(tf.expand_dims(image, -1))
     lstm = LSTMSingleton.get_instance(params['hdim'])
+
     if mode is tf.contrib.learn.ModeKeys.TRAIN:
         target_tokens = targets['target']
         # Decoder inputs should be in time-major order.
         decoder_inputs = tf.to_int64(array_ops.transpose(target_tokens, [1, 0]))
-
         sequence_length = targets['sequence_length']
-        initial_state = get_initial_lstm_state(
-            tf.reduce_mean(visual_features, (1,2)), params)
-        init_token = start_sequence_token(params['batch_size'])
-        fn = get_loop_fn(decoder_inputs, sequence_length, visual_features, lstm,
-                         initial_state, attention, init_token, embeddings,
-                         params)
-        token_logits, final_state, _ = tf.nn.raw_rnn(lstm, fn)
+        feed_prev_output = params['feed_prev_output']
+    else:
+        # Doesn't matter how long the sequence is since we will be feeding in
+        # tokens predicted from the previous iteration.
+        decoder_inputs = tf.zeros((1, params['batch_size']), dtype=tf.int64)
+        sequence_length = tf.constant(np.full((params['batch_size'],),
+                                              MAX_LENGTH), dtype=tf.int32)
+        feed_prev_output = True
 
-        # 'token_logits' holds the log-probability of each token for each
-        # iteration of the decoding sequence.
-        # fake_loss = tf.reduce_mean(token_logits.pack())
+    # Builds the actual model.
+    initial_state = get_initial_lstm_state(
+        tf.reduce_mean(visual_features, (1,2)), params)
+    init_token = start_sequence_token(params['batch_size'])
+    fn = get_loop_fn(decoder_inputs, sequence_length, visual_features, lstm,
+                     initial_state, attention, init_token, embeddings,
+                     feed_prev_output=feed_prev_output,
+                     hparams=params)
+    token_logits, final_state, _ = tf.nn.raw_rnn(lstm, fn)
 
-        # Get logits as packed tensor in batch-major order
-        token_logits = array_ops.transpose(token_logits.pack(), [1, 0, 2])
+    # 'token_logits' holds the log-probability of each token for each
+    # iteration of the decoding sequence.
 
-        # For some reason, this is not the right length...
-        fake_loss = sequence_loss(token_logits, target_tokens,
-                                  targets['weights'])
+    # Get logits as packed tensor in batch-major order
+    token_logits = array_ops.transpose(token_logits.pack(), [1, 0, 2])
+
+    if mode is tf.contrib.learn.ModeKeys.TRAIN:
+        loss = sequence_loss(token_logits, targets['target'],
+                             targets['weights'])
 
         global_step = variables.get_global_step()
         learning_rate = tf.train.exponential_decay(
@@ -115,9 +129,14 @@ def dynamic_model_fn(features, targets, mode, params):
 
         optimizer = tf.train.AdamOptimizer(params['starter_learning_rate'],
                                            epsilon=params['epsilon'])
-        train_op = optimizer.minimize(fake_loss, global_step=global_step)
+        train_op = optimizer.minimize(loss, global_step=global_step)
 
-        return (None, fake_loss, train_op)
+        return (None, loss, train_op)
+
+    else:
+        predicted_tokens = tf.argmax(token_logits, 2)
+        print "pred tokens shape:", predicted_tokens.get_shape()
+        return (predicted_tokens, None, None)
 
 def model_fn(features, targets, mode, params):
     # TODO(kjchavez): Consider using 'embedding_attention_decoder' from

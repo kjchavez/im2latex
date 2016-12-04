@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import argparse
 import zmq
-from model.att_model import model_fn
+from model.att_model import dynamic_model_fn
 from model.input import get_train_data
 from util.pad import pad_image
 
@@ -17,13 +17,12 @@ with open('character_mapping.txt') as fp:
     VOCAB_SIZE = len(char_mapping)
 
 params = {
-    'hdim': 256,
+    'hdim': 100,
     'adim': 128,
     'vdim': 512,
     'batch_size': 1,
     'embedding_dim': 128,
     'starter_learning_rate': 0.0005,
-    'unroll_length': 30,
     'token_map': char_mapping
 }
 parser = argparse.ArgumentParser()
@@ -43,7 +42,7 @@ def input_fn():
     binary_im = tf.constant(np.expand_dims(im - 0.5, 0))
     return {'image': binary_im}
 
-estimator = tf.contrib.learn.Estimator(model_fn=model_fn,
+estimator = tf.contrib.learn.Estimator(model_fn=dynamic_model_fn,
                                        model_dir="/tmp/test", config=config,
                                        params=params)
 
@@ -52,5 +51,7 @@ while True:
     print "Prediction"
     print "====================="
     tokens = estimator.predict(input_fn=input_fn)
-    latex = ''.join([char_mapping[t[0]] for t in tokens])
+    print tokens
+    latex = ''.join([char_mapping[t] for t in tokens[0]])
+    print latex
     sock.send(latex)

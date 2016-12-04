@@ -14,15 +14,14 @@ with open('character_mapping.txt') as fp:
     print "VOCAB SIZE:", VOCAB_SIZE
 
 params = {
-    'hdim': 100,
+    'hdim': 100, # This *shouldn't* have to be tied to VOCAB_SIZE...
     'adim': 128,
     'epsilon': 1e-8,
     'vdim': 512,
     'batch_size': 4,
     'embedding_dim': 128,
     'starter_learning_rate': 0.0005,
-    'unroll_length': 30,
-    'output_feedback': False,
+    'feed_prev_output': False,
     'token_map': char_mapping
 }
 parser = argparse.ArgumentParser()

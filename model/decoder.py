@@ -82,7 +82,7 @@ def token_prob(ht, context, prev_token_embedding, vocab_size, hparams={}):
     return logits, probs
 
 def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
-                attn_fn, init_token, embeddings, hparams={}):
+                attn_fn, init_token, embeddings, feed_prev_output=True, hparams={}):
     """ Returns a loop function that can be used in the 'raw_rnn' function.
 
     Args:
@@ -108,7 +108,6 @@ def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
                 next_cell_state = initial_state
                 selected_token_embedding = tf.nn.embedding_lookup(embeddings,
                                                                   init_token)
-                print "TOKEN EMBEDDING SHAPE:", selected_token_embedding.get_shape()
                 attention, context = attn_fn(feat, initial_state[1], hdim=hparams['hdim'],
                                              vdim=hparams['vdim'], adim=hparams['adim'],
                                              batch_size=hparams['batch_size'])
@@ -138,7 +137,7 @@ def get_loop_fn(decoder_inputs, sequence_length, feat, lstm, initial_state,
             # To produce the next input from the current output, we must do a
             # couple of things. First, we choose a token from the token
             # distribution (or use the 'true' token).
-            if hparams['output_feedback']:
+            if feed_prev_output:
                 selected_token = tf.argmax(logits, 1, name="argmax_token")
             else:
                 # We should be careful not to read past the last token.
